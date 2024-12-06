@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Fatura Hesaplama Programı</title>
+    <!-- Firebase SDK'ları -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <!-- CSS -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: auto;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        select {
+            font-size: 16px;
+        }
+        button {
+            width: 48%;
+            padding: 10px;
+            margin-top: 20px;
+            margin-right: 2%;
+            background-color: #007BFF;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+        }
+        button:last-child {
+            margin-right: 0;
+            background-color: #28A745;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        #sonuc {
+            margin-top: 30px;
+        }
+        .fatura {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #007BFF;
+        }
+        .alert {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e7f3fe;
+            border-left: 4px solid #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fatura Hesaplama Programı</h1>
+        <label for="yil">Yıl Seçin:</label>
+        <select id="yil">
+            <!-- Yıl seçenekleri JavaScript ile doldurulacak -->
+        </select>
+
+        <label for="ay">Ay Seçin:</label>
+        <select id="ay">
+            <!-- Ay seçenekleri JavaScript ile doldurulacak -->
+        </select>
+
+        <label>Su Faturası Tutarı (TL):</label>
+        <input type="number" id="suFaturasi" step="0.01">
+
+        <label>Elektrik Faturası Tutarı (TL):</label>
+        <input type="number" id="elektrikFaturasi" step="0.01">
+
+        <label>Doğalgaz Faturası Tutarı (TL):</label>
+        <input type="number" id="dogalgazFaturasi" step="0.01">
+
+        <div style="display: flex; justify-content: space-between;">
+            <button id="kaydetBtn">Verileri Kaydet</button>
+            <button id="gosterBtn">Verileri Göster</button>
+        </div>
+
+        <div id="sonuc"></div>
+    </div>
+
+    <script>
+        // Firebase yapılandırması
+        const firebaseConfig = {
+        apiKey: "AIzaSyBTUWSHPrFtZCdyIdaia7M4keY4WVgy_hA",
+        authDomain: "faturam-d1081.firebaseapp.com",
+        databaseURL: "https://faturam-d1081-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "faturam-d1081",
+        storageBucket: "faturam-d1081.firebasestorage.app",
+        messagingSenderId: "249619592666",
+        appId: "1:249619592666:web:85ae9f883d55a39bc3bce3"
+        };
+        // Kendi Firebase yapılandırma bilgilerinizi yukarıdaki yerlere yerleştirin.
+
+        // Firebase'i başlat
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Yıl ve Ay seçeneklerini doldurma
+        const yilSelect = document.getElementById('yil');
+        const aySelect = document.getElementById('ay');
+
+        const currentYear = new Date().getFullYear();
+        for(let i = 2024; i <= 2028; i++) {
+            let option = document.createElement('option');
+            option.value = i;
+            option.text = i;
+            yilSelect.add(option);
+        }
+
+        const aylar = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+        for(let i = 0; i < aylar.length; i++) {
+            let option = document.createElement('option');
+            option.value = (i + 1).toString().padStart(2, '0');
+            option.text = aylar[i];
+            aySelect.add(option);
+        }
+
+        function verileriKaydet() {
+            const suFaturasi = parseFloat(document.getElementById('suFaturasi').value) || 0;
+            const elektrikFaturasi = parseFloat(document.getElementById('elektrikFaturasi').value) || 0;
+            const dogalgazFaturasi = parseFloat(document.getElementById('dogalgazFaturasi').value) || 0;
+
+            const toplamFatura = suFaturasi + elektrikFaturasi + dogalgazFaturasi;
+            const yuzde40 = toplamFatura * 0.40;
+
+            const yil = document.getElementById('yil').value;
+            const ay = document.getElementById('ay').value;
+
+            const tarih = `${yil}-${ay}`;
+
+            database.ref('faturalar/' + tarih).set({
+                suFaturasi: suFaturasi,
+                elektrikFaturasi: elektrikFaturasi,
+                dogalgazFaturasi: dogalgazFaturasi,
+                toplamFatura: toplamFatura,
+                yuzde40: yuzde40
+            }, (error) => {
+                if (error) {
+                    alert('Veriler kaydedilirken bir hata oluştu: ' + error);
+                } else {
+                    // Faturaların %40'ını ekranda göster
+                    let sonucDiv = document.getElementById('sonuc');
+                    sonucDiv.innerHTML = `
+                    <div class="alert">
+                        <strong>${tarih}</strong> tarihli faturaların toplamının %40'ı: <strong>${yuzde40.toFixed(2)} TL</strong>
+                    </div>`;
+                    // Inputları temizle
+                    document.getElementById('suFaturasi').value = '';
+                    document.getElementById('elektrikFaturasi').value = '';
+                    document.getElementById('dogalgazFaturasi').value = '';
+                }
+            });
+        }
+
+        function verileriGoster() {
+            const yil = document.getElementById('yil').value;
+            const ay = document.getElementById('ay').value;
+            const tarih = `${yil}-${ay}`;
+
+            const faturalarRef = database.ref('faturalar/' + tarih);
+            faturalarRef.once('value', (snapshot) => {
+                const data = snapshot.val();
+                let sonucDiv = document.getElementById('sonuc');
+                sonucDiv.innerHTML = '';
+                if(data) {
+                    sonucDiv.innerHTML += `
+                    <div class="fatura">
+                        <h3>${tarih}</h3>
+                        Su Faturası: ${data.suFaturasi.toFixed(2)} TL<br>
+                        Elektrik Faturası: ${data.elektrikFaturasi.toFixed(2)} TL<br>
+                        Doğalgaz Faturası: ${data.dogalgazFaturasi.toFixed(2)} TL<br>
+                        Toplam Fatura: ${data.toplamFatura.toFixed(2)} TL<br>
+                        %40'ı: ${data.yuzde40.toFixed(2)} TL<br>
+                    </div>`;
+                } else {
+                    sonucDiv.innerHTML = '<p>Seçtiğiniz ay için kayıt bulunamadı.</p>';
+                }
+            });
+        }
+
+        // Butonlara event listener ekleyelim
+        document.getElementById('kaydetBtn').addEventListener('click', verileriKaydet);
+        document.getElementById('gosterBtn').addEventListener('click', verileriGoster);
+    </script>
+</body>
+</html>
